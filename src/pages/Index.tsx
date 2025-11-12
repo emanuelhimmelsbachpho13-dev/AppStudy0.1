@@ -65,7 +65,15 @@ const Index = () => {
           
           {/* Show results based on login status */}
           {!isLoading && questions && !isLoggedIn && <ResultsDisplay questions={questions} />}
-          {!isLoading && questions && isLoggedIn && hasProfile && <QuizInterface questions={questions} />}
+          {!isLoading && questions && isLoggedIn && hasProfile && (
+            <QuizInterface 
+              questions={questions} 
+              onLoadNew={() => {
+                setQuestions(null);
+                setIsLoading(false);
+              }}
+            />
+          )}
         </main>
       </div>
     </div>

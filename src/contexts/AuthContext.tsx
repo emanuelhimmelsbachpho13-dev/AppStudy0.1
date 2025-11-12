@@ -5,6 +5,7 @@ interface User {
   name: string;
   email: string;
   studentType?: string;
+  planType?: 'free' | 'monthly' | 'annual';
 }
 
 interface AuthContextType {
@@ -15,6 +16,7 @@ interface AuthContextType {
   signup: (name: string, email: string, password: string) => Promise<void>;
   logout: () => void;
   saveProfile: (studentType: string) => void;
+  upgradePlan: (planType: 'monthly' | 'annual') => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,11 +64,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Usuário já existe. Por favor, faça login.");
     }
     
-    // Create new user WITHOUT studentType (will trigger onboarding)
+    // Create new user WITHOUT studentType (will trigger onboarding) and with 'free' plan
     const mockUser: User = {
       id: Math.random().toString(36),
       name,
       email,
+      planType: 'free',
       // studentType is undefined - will show onboarding quiz
     };
     
@@ -98,6 +101,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const upgradePlan = async (planType: 'monthly' | 'annual') => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    if (user) {
+      const updatedUser = { ...user, planType };
+      setUser(updatedUser);
+      localStorage.setItem("jungle_user", JSON.stringify(updatedUser));
+      
+      // Update in users database too
+      const usersDB = localStorage.getItem("jungle_users_db");
+      const users = usersDB ? JSON.parse(usersDB) : {};
+      users[user.email] = updatedUser;
+      localStorage.setItem("jungle_users_db", JSON.stringify(users));
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -106,7 +126,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       login, 
       signup, 
       logout,
-      saveProfile 
+      saveProfile,
+      upgradePlan
     }}>
       {children}
     </AuthContext.Provider>
