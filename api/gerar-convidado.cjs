@@ -1,5 +1,7 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+const PptxParser = require('node-pptx-parser');
 const multiparty = require('multiparty');
 const fs = require('fs');
 
@@ -13,10 +15,7 @@ module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true);
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
-  res.setHeader(
-    'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
-  );
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Content-Type');
 
   if (req.method === 'OPTIONS') {
     res.status(200).end();
@@ -38,14 +37,32 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Failed to parse form data or no file uploaded' });
     }
 
+    let textContent = '';
+
     try {
       const file = files.file[0];
       const buffer = fs.readFileSync(file.path);
-      const pdfData = await pdfParse(buffer);
-      const textContent = pdfData.text;
+      const lowerName = file.originalFilename.toLowerCase();
+
+      if (lowerName.endsWith('.pdf')) {
+        const pdfData = await pdfParse(buffer);
+        textContent = pdfData.text || '';
+      } else if (lowerName.endsWith('.docx')) {
+        const docxData = await mammoth.extractRawText({ buffer });
+        textContent = docxData?.value || '';
+      } else if (lowerName.endsWith('.pptx')) {
+        const tempPath = file.path; // multiparty já nos dá um path
+        const parser = new PptxParser(tempPath);
+        const textData = await parser.extractText();
+        textContent = textData.map((slide) => slide.text).join('\n\n');
+      } else if (lowerName.endsWith('.txt')) {
+        textContent = buffer.toString('utf-8');
+      } else {
+        return res.status(400).json({ error: 'Tipo de arquivo não suportado' });
+      }
 
       if (!textContent || textContent.trim().length === 0) {
-        return res.status(400).json({ error: 'No text content found in PDF' });
+        return res.status(400).json({ error: 'Nenhum conteúdo de texto encontrado no material' });
       }
 
       const genAI = new GoogleGenerativeAI(geminiApiKey);
@@ -71,7 +88,7 @@ module.exports = async (req, res) => {
 
       return res.status(200).json(questions);
     } catch (error) {
-      console.error('Guest API error:', error);
+      console.error('Guest API error (file):', error);
       return res.status(500).json({ error: error.message || 'Internal server error' });
     }
   });

@@ -29,17 +29,17 @@ const Index = () => {
     if (result.quizId) {
       // --- FLUXO LOGADO ---
       setQuizId(result.quizId);
-      // Mock para mudar a tela, o QuizInterface buscará os dados reais
-      setQuestions([{ id: 1, pergunta: "Carregando quiz...", opcoes: [], resposta_correta: "" }]);
+      // O QuizInterface buscará os dados, mas setamos um mock para mudar a tela
+      setQuestions([{ id: 1, pergunta: "Carregando quiz...", opcoes: [], resposta_correta: "" }]); 
     } else if (result.questions) {
       // --- FLUXO CONVIDADO ---
       setQuizId(null);
-      setQuestions(result.questions as Question[]); // Seta as 5 perguntas reais da amostra
+      setQuestions(result.questions); // Seta as 5 perguntas reais da amostra
     }
-
+    
     setIsLoading(false);
   };
-
+  
   const handleLoadNew = () => {
     setQuestions(null);
     setQuizId(null);
@@ -47,8 +47,6 @@ const Index = () => {
   };
 
   const renderContent = () => {
-    // O useAuth tem um isLoading. Podemos usá-lo ou o local.
-    // Vamos usar o isLoading local para a geração.
     if (isLoading) {
       return <LoadingState />;
     }
@@ -71,9 +69,8 @@ const Index = () => {
         handleLoadNew();
         return <InputForm onGenerate={handleGenerate} />;
       }
-
       return (
-        <QuizInterface
+        <QuizInterface 
           quizId={quizId} // Passa o ID para o componente buscar os dados reais
           onLoadNew={handleLoadNew}
         />
@@ -81,23 +78,24 @@ const Index = () => {
     }
 
     // 4. Estado Padrão (Sem perguntas, Logado ou Não) -> Formulário de Input
-    // (Isso cobre !isLoggedIn || hasProfile)
     return <InputForm onGenerate={handleGenerate} />;
   };
 
   return (
-    <div
+    <div 
       className="min-h-screen relative overflow-hidden"
       style={{
         backgroundImage: `url(${jungleBackground})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
       }}
     >
+      <div className="absolute inset-0 bg-gradient-to-br from-jungle-dark/80 to-jungle-medium/70" />
+      
       <div className="relative z-10">
         <Header />
-
+        
         <main className="container mx-auto px-4 py-12 flex items-center justify-center min-h-[calc(100vh-88px)]">
           {renderContent()}
         </main>

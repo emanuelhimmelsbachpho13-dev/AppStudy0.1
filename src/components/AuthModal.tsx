@@ -14,14 +14,12 @@ interface AuthModalProps {
 
 export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
   const [isLoading, setIsLoading] = useState(false);
-
   const [loginData, setLoginData] = useState({ email: "", password: "" });
   const [signupData, setSignupData] = useState({ name: "", email: "", password: "" });
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
     try {
       const { error } = await supabase.auth.signInWithPassword({
         email: loginData.email,
@@ -31,7 +29,7 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
       toast.success("Login realizado com sucesso!");
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error?.message || "Erro ao fazer login");
+      toast.error(error.message || "Erro ao fazer login");
     } finally {
       setIsLoading(false);
     }
@@ -40,7 +38,6 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
     try {
       const { error } = await supabase.auth.signUp({
         email: signupData.email,
@@ -52,10 +49,10 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
         },
       });
       if (error) throw error;
-      toast.success("Cadastro realizado! Verifique seu e-mail para confirmar.");
+      toast.success("Cadastro realizado!", "Verifique seu e-mail para confirmar.");
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error?.message || "Erro ao fazer cadastro");
+      toast.error(error.message || "Erro ao fazer cadastro");
     } finally {
       setIsLoading(false);
     }
@@ -63,22 +60,20 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-background/95 backdrop-blur-sm border-jungle-accent/20">
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle className="text-2xl font-bold text-foreground">Bem-vindo!</DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Entre ou cadastre-se para começar a responder as perguntas
+          <DialogTitle>Entrar / Cadastrar</DialogTitle>
+          <DialogDescription>
+            Faça login ou crie uma conta para continuar
           </DialogDescription>
         </DialogHeader>
-
         <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="login">Entrar</TabsTrigger>
+            <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Cadastrar</TabsTrigger>
           </TabsList>
-
-          <TabsContent value="login">
-            <form onSubmit={handleLogin} className="space-y-4 mt-4">
+          <TabsContent value="login" className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="login-email">Email</Label>
                 <Input
@@ -101,14 +96,13 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" variant="jungle" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Entrando..." : "Entrar"}
               </Button>
             </form>
           </TabsContent>
-
-          <TabsContent value="signup">
-            <form onSubmit={handleSignup} className="space-y-4 mt-4">
+          <TabsContent value="signup" className="space-y-4">
+            <form onSubmit={handleSignup} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="signup-name">Nome</Label>
                 <Input
@@ -142,7 +136,7 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
                   required
                 />
               </div>
-              <Button type="submit" className="w-full" variant="jungle" disabled={isLoading}>
+              <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? "Cadastrando..." : "Cadastrar"}
               </Button>
             </form>

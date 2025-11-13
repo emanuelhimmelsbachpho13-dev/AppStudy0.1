@@ -2,13 +2,16 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { AuthModal } from "@/components/AuthModal";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase"; // Importe o Supabase real
 import jungleLogo from "@/assets/jungle-logo.png";
 
 export const Header = () => {
   const [authModalOpen, setAuthModalOpen] = useState(false);
-  const { user, isLoggedIn } = useAuth();
+  
+  // O user e isLoggedIn agora vêm do nosso AuthContext real
+  const { user, isLoggedIn } = useAuth(); 
 
+  // Nova função de logout que chama o Supabase
   const handleLogout = async () => {
     await supabase.auth.signOut();
   };

@@ -1,6 +1,10 @@
 const { createClient } = require('@supabase/supabase-js');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const pdfParse = require('pdf-parse');
+const mammoth = require('mammoth');
+const PptxParser = require('node-pptx-parser');
+const { YoutubeTranscript } = require('youtube-transcript');
+const fs = require('fs');
 
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Credentials', true);
@@ -20,6 +24,9 @@ module.exports = async (req, res) => {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let textContent = '';
+  let materialTitle = 'Quiz';
+
   try {
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_KEY;
@@ -32,11 +39,8 @@ module.exports = async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const genAI = new GoogleGenerativeAI(geminiApiKey);
 
-    const { file_path, material_title } = req.body;
-
-    if (!file_path) {
-      return res.status(400).json({ error: 'file_path is required' });
-    }
+    const { file_path, url, material_title: title } = req.body;
+    if (title) materialTitle = title;
 
     const authHeader = req.headers.authorization;
 
@@ -46,28 +50,55 @@ module.exports = async (req, res) => {
 
     const token = authHeader.replace('Bearer ', '');
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser(token);
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
 
     if (authError || !user) {
       return res.status(401).json({ error: 'Invalid token' });
     }
 
-    const { data: fileData, error: downloadError } = await supabase.storage.from('uploads').download(file_path);
+    if (file_path) {
+      // --- FLUXO DE ARQUIVO ---
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('uploads')
+        .download(file_path);
 
-    if (downloadError) {
-      return res.status(500).json({ error: `Failed to download file: ${downloadError.message}` });
+      if (downloadError) {
+        throw new Error(`Failed to download file: ${downloadError.message}`);
+      }
+
+      const buffer = Buffer.from(await fileData.arrayBuffer());
+      const lowerPath = file_path.toLowerCase();
+
+      if (lowerPath.endsWith('.pdf')) {
+        const pdfData = await pdfParse(buffer);
+        textContent = pdfData.text || '';
+      } else if (lowerPath.endsWith('.docx')) {
+        const docxData = await mammoth.extractRawText({ buffer });
+        textContent = docxData?.value || '';
+      } else if (lowerPath.endsWith('.pptx')) {
+        // node-pptx-parser precisa de um caminho de arquivo
+        const tempPath = `/tmp/${Date.now()}.pptx`;
+        fs.writeFileSync(tempPath, buffer);
+        const parser = new PptxParser(tempPath);
+        const textData = await parser.extractText();
+        textContent = textData.map((slide) => slide.text).join('\n\n');
+        fs.unlinkSync(tempPath); // Limpa o arquivo temporário
+      } else if (lowerPath.endsWith('.txt')) {
+        textContent = buffer.toString('utf-8');
+      } else {
+        return res.status(400).json({ error: 'Tipo de arquivo não suportado' });
+      }
+    } else if (url) {
+      // --- FLUXO DE URL (YOUTUBE) ---
+      materialTitle = title || url;
+      const transcriptData = await YoutubeTranscript.fetchTranscript(url);
+      textContent = Array.isArray(transcriptData) ? transcriptData.map((item) => item.text ?? '').join(' ') : '';
+    } else {
+      return res.status(400).json({ error: 'Nenhum arquivo (file_path) ou URL (url) foi fornecido' });
     }
 
-    const arrayBuffer = await fileData.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const pdfData = await pdfParse(buffer);
-    const textContent = pdfData.text;
-
     if (!textContent || textContent.trim().length === 0) {
-      return res.status(400).json({ error: 'No text content found in PDF' });
+      return res.status(400).json({ error: 'Nenhum conteúdo de texto encontrado no material' });
     }
 
     const model = genAI.getGenerativeModel({
@@ -91,12 +122,9 @@ module.exports = async (req, res) => {
       return res.status(500).json({ error: 'Failed to parse AI response' });
     }
 
-    const {
-      data: quizData,
-      error: quizError,
-    } = await supabase
+    const { data: quizData, error: quizError } = await supabase
       .from('quizzes')
-      .insert({ user_id: user.id, material_title: material_title || 'Quiz sem título', created_at: new Date().toISOString() })
+      .insert({ user_id: user.id, material_title: materialTitle, created_at: new Date().toISOString() })
       .select()
       .single();
 
@@ -122,7 +150,7 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ quizId });
   } catch (error) {
-    console.error('Server error:', error);
+    console.error('Server error (generate.cjs):', error);
     return res.status(500).json({ error: error.message || 'Internal server error' });
   }
 };
