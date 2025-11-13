@@ -1,4 +1,15 @@
 {
+  "functions": {
+    "api/generate.cjs": {
+      "runtime": "nodejs18.x"
+    },
+    "api/gerar-convidado.cjs": {
+      "runtime": "nodejs18.x"
+    },
+    "api/generate-url-guest.cjs": {
+      "runtime": "nodejs18.x"
+    }
+  },
   "rewrites": [
     {
       "source": "/api/(.*)",
