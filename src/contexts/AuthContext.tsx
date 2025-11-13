@@ -1,8 +1,10 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { supabase } from "@/lib/supabase";
+import { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface User {
   id: string;
-  name: string;
+  name?: string;
   email: string;
   studentType?: string;
   planType?: 'free' | 'monthly' | 'annual';
@@ -25,96 +27,99 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
 
   useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (session?.user) {
+          setUser({
+            id: session.user.id,
+            email: session.user.email!,
+            name: session.user.user_metadata?.name,
+            studentType: session.user.user_metadata?.studentType,
+            planType: session.user.user_metadata?.planType || 'free',
+          });
+        } else {
+          setUser(null);
+        }
+      }
+    );
+
     // Check for existing session
-    const storedUser = localStorage.getItem("jungle_user");
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser({
+          id: session.user.id,
+          email: session.user.email!,
+          name: session.user.user_metadata?.name,
+          studentType: session.user.user_metadata?.studentType,
+          planType: session.user.user_metadata?.planType || 'free',
+        });
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const login = async (email: string, password: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Try to find existing user in our "database"
-    const usersDB = localStorage.getItem("jungle_users_db");
-    const users = usersDB ? JSON.parse(usersDB) : {};
-    
-    const existingUser = users[email];
-    
-    if (!existingUser) {
-      throw new Error("Usuário não encontrado. Por favor, cadastre-se primeiro.");
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      throw error;
     }
-    
-    // Login with existing user data (including studentType if exists)
-    setUser(existingUser);
-    localStorage.setItem("jungle_user", JSON.stringify(existingUser));
+
+    // User state will be updated by onAuthStateChange
   };
 
   const signup = async (name: string, email: string, password: string) => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Get existing users database
-    const usersDB = localStorage.getItem("jungle_users_db");
-    const users = usersDB ? JSON.parse(usersDB) : {};
-    
-    // Check if user already exists
-    if (users[email]) {
-      throw new Error("Usuário já existe. Por favor, faça login.");
-    }
-    
-    // Create new user WITHOUT studentType (will trigger onboarding) and with 'free' plan
-    const mockUser: User = {
-      id: Math.random().toString(36),
-      name,
+    const { data, error } = await supabase.auth.signUp({
       email,
-      planType: 'free',
-      // studentType is undefined - will show onboarding quiz
-    };
-    
-    // Save to users database
-    users[email] = mockUser;
-    localStorage.setItem("jungle_users_db", JSON.stringify(users));
-    
-    // Set as current user
-    setUser(mockUser);
-    localStorage.setItem("jungle_user", JSON.stringify(mockUser));
+      password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/`,
+        data: {
+          name,
+          planType: 'free',
+          // studentType is undefined - will trigger onboarding
+        },
+      },
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    // User state will be updated by onAuthStateChange
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem("jungle_user");
   };
 
-  const saveProfile = (studentType: string) => {
+  const saveProfile = async (studentType: string) => {
     if (user) {
-      const updatedUser = { ...user, studentType };
-      setUser(updatedUser);
-      localStorage.setItem("jungle_user", JSON.stringify(updatedUser));
+      const { error } = await supabase.auth.updateUser({
+        data: { studentType }
+      });
       
-      // Update in users database too
-      const usersDB = localStorage.getItem("jungle_users_db");
-      const users = usersDB ? JSON.parse(usersDB) : {};
-      users[user.email] = updatedUser;
-      localStorage.setItem("jungle_users_db", JSON.stringify(users));
+      if (error) throw error;
+      
+      setUser({ ...user, studentType });
     }
   };
 
   const upgradePlan = async (planType: 'monthly' | 'annual') => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
     if (user) {
-      const updatedUser = { ...user, planType };
-      setUser(updatedUser);
-      localStorage.setItem("jungle_user", JSON.stringify(updatedUser));
+      const { error } = await supabase.auth.updateUser({
+        data: { planType }
+      });
       
-      // Update in users database too
-      const usersDB = localStorage.getItem("jungle_users_db");
-      const users = usersDB ? JSON.parse(usersDB) : {};
-      users[user.email] = updatedUser;
-      localStorage.setItem("jungle_users_db", JSON.stringify(users));
+      if (error) throw error;
+      
+      setUser({ ...user, planType });
     }
   };
 

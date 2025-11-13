@@ -11,6 +11,8 @@ import jungleBackground from "@/assets/jungle-background.jpg";
 interface Question {
   id: number;
   pergunta: string;
+  opcoes?: string[];
+  resposta_correta?: string;
 }
 
 const Index = () => {
@@ -19,16 +21,25 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const [quizId, setQuizId] = useState<number | null>(null);
 
-  const handleGenerate = async (generatedQuizId: number) => {
+  const handleGenerate = (result: { quizId: number | null; questions: any[] | null }) => {
     setIsLoading(true);
-    setQuizId(generatedQuizId);
     
-    // Mock questions for display (real questions will come from database when needed)
-    const mockQuestions: Question[] = [
-      { id: 1, pergunta: "Carregando questões..." },
-    ];
+    if (result.quizId) {
+      // Fluxo Logado: Recebemos um quizId
+      setQuizId(result.quizId);
+      // Mock para mudar a tela, QuizInterface vai buscar os dados reais
+      setQuestions([{ id: 1, pergunta: "Carregando questões..." }]);
+    } else if (result.questions) {
+      // Fluxo Convidado: Recebemos as 5 perguntas reais
+      setQuizId(null);
+      // Adicionar IDs às perguntas vindas da API guest
+      const questionsWithIds = result.questions.map((q, index) => ({
+        ...q,
+        id: index + 1
+      }));
+      setQuestions(questionsWithIds);
+    }
     
-    setQuestions(mockQuestions);
     setIsLoading(false);
   };
 

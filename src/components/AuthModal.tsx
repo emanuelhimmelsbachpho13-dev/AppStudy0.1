@@ -27,8 +27,8 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
       await login(loginData.email, loginData.password);
       toast.success("Login realizado com sucesso!");
       onOpenChange(false);
-    } catch (error) {
-      toast.error("Erro ao fazer login");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao fazer login");
     } finally {
       setIsLoading(false);
     }
@@ -40,10 +40,10 @@ export const AuthModal = ({ open, onOpenChange }: AuthModalProps) => {
     
     try {
       await signup(signupData.name, signupData.email, signupData.password);
-      toast.success("Cadastro realizado com sucesso!");
+      toast.success("Cadastro realizado com sucesso! Verifique seu email.");
       onOpenChange(false);
-    } catch (error) {
-      toast.error("Erro ao fazer cadastro");
+    } catch (error: any) {
+      toast.error(error?.message || "Erro ao fazer cadastro");
     } finally {
       setIsLoading(false);
     }
