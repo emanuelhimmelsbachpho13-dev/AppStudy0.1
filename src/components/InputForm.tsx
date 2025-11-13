@@ -77,7 +77,7 @@ export const InputForm = ({ onGenerate }: InputFormProps) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Sessão não encontrada');
 
-        const response = await fetch('/api/generate.cjs', { // ATENÇÃO: .cjs
+        const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({ file_path: uploadData.path, material_title: selectedFile.name })
@@ -94,9 +94,8 @@ export const InputForm = ({ onGenerate }: InputFormProps) => {
         const formData = new FormData();
         formData.append('file', selectedFile);
         
-        const response = await fetch('/api/gerar-convidado.cjs', { // ATENÇÃO: .cjs
+        const response = await fetch('/api/gerar-convidado', {
           method: 'POST',
-          // REMOVA o header 'Content-Type', o navegador define
           body: formData
         });
 
@@ -127,7 +126,7 @@ export const InputForm = ({ onGenerate }: InputFormProps) => {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) throw new Error('Sessão não encontrada');
 
-        const response = await fetch('/api/generate.cjs', { // Chama a mesma API segura
+        const response = await fetch('/api/generate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
           body: JSON.stringify({ url: linkUrl, material_title: linkUrl })
@@ -138,7 +137,7 @@ export const InputForm = ({ onGenerate }: InputFormProps) => {
 
       } else {
         // --- FLUXO CONVIDADO (URL) ---
-        const response = await fetch('/api/generate-url-guest.cjs', { // Chama a nova API pública de URL
+        const response = await fetch('/api/generate-url-guest', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ url: linkUrl })
