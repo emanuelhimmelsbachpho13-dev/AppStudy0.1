@@ -1,227 +1,262 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { Upload, Link as LinkIcon, Sparkles } from "lucide-react";
+import { Upload, Paperclip, ArrowRight, X, FileText, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
-import { useAuth } from "@/contexts/AuthContext"; // Agora é o AuthContext real
-import { toast } from "sonner"; // Usando sonner
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface InputFormProps {
-  // Atualizado para lidar com os dois fluxos
   onGenerate: (result: { quizId: number | null, questions: any[] | null }) => void;
+  droppedFile?: File | null;
 }
 
-// Lista de tipos de arquivo suportados
 const ALLOWED_FILE_TYPES = [
   'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-  'text/plain', // .txt
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'text/plain',
 ];
 
-export const InputForm = ({ onGenerate }: InputFormProps) => {
-  const { user } = useAuth(); // Pega o usuário REAL (ou null se for convidado)
+export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
+  const { user } = useAuth();
+  const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [linkUrl, setLinkUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
-  const [activeTab, setActiveTab] = useState("file");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Validação do tipo de arquivo
-      if (!ALLOWED_FILE_TYPES.includes(file.type) && !file.name.endsWith('.txt')) {
-        toast.error("Tipo de arquivo não suportado. Use PDF, DOCX, PPTX, ou TXT.");
-        setSelectedFile(null);
-        return;
+  // Handle dropped file prop changes
+  useEffect(() => {
+    if (droppedFile) {
+      if (validateFile(droppedFile)) {
+        setSelectedFile(droppedFile);
+        // Automatically start upload if dropped? User prompt says "site deve reagir visualmente... e iniciar o upload imediatamente".
+        // To be safe and avoid recursion or duplicate calls if useEffect fires multiple times, we might want a flag or just call the submit function.
+        // However, we need to be careful with async inside useEffect.
+        // Let's set the file and maybe trigger a separate effect or just call a function.
+        handleAutoSubmit(droppedFile);
       }
+    }
+  }, [droppedFile]);
+
+  const validateFile = (file: File) => {
+    if (!ALLOWED_FILE_TYPES.includes(file.type) && !file.name.endsWith('.txt')) {
+      toast.error("Tipo de arquivo não suportado. Use PDF, DOCX, PPTX, ou TXT.");
+      return false;
+    }
+    return true;
+  };
+
+  const handleAutoSubmit = async (file: File) => {
+    // Need to wait for state update or pass file directly
+    await processSubmission(file, "");
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && validateFile(file)) {
       setSelectedFile(file);
     }
   };
 
-  // --- O NOVO CÉREBRO DO FUNIL ---
+  const handleClearFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
-  // 1. O "CÉREBRO" PRINCIPAL
-  const handleSmartGenerate = async () => {
-    if (activeTab === 'file') {
-      await handleFileGenerate();
+  const handleSubmit = async () => {
+    await processSubmission(selectedFile, inputValue);
+  };
+
+  const processSubmission = async (fileToProcess: File | null, textInput: string) => {
+    if (!fileToProcess && !textInput.trim()) {
+      toast.error("Por favor, digite um tópico, cole um link ou envie um arquivo.");
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Determine mode: File, URL, or Topic
+      let processingFile = fileToProcess;
+      let processingUrl = "";
+
+      if (!processingFile) {
+        if (textInput.startsWith("http://") || textInput.startsWith("https://")) {
+          processingUrl = textInput;
+        } else {
+          // Topic mode: Create a text file from the input
+          const blob = new Blob([textInput], { type: "text/plain" });
+          processingFile = new File([blob], "topic.txt", { type: "text/plain" });
+        }
+      }
+
+      if (processingFile) {
+        await handleFileFlow(processingFile);
+      } else if (processingUrl) {
+        await handleUrlFlow(processingUrl);
+      }
+
+    } catch (error) {
+      console.error('Erro:', error);
+      toast.error(error instanceof Error ? error.message : "Algo deu errado");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileFlow = async (file: File) => {
+    if (user) {
+      // --- LOGGED IN (File) ---
+      const filePath = `${user.id}/${Date.now()}_${file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('uploads')
+        .upload(filePath, file);
+
+      if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
+
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ file_path: uploadData.path, material_title: file.name })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar quiz'); }
+
+      const { quizId } = await response.json();
+      onGenerate({ quizId: quizId, questions: null });
     } else {
-      await handleUrlGenerate();
+      // --- GUEST (File) ---
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/gerar-convidado', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar amostra'); }
+
+      const questions = await response.json();
+      onGenerate({ quizId: null, questions: questions });
     }
   };
 
-  // 2. FUNÇÃO DE GERAÇÃO DE ARQUIVO (Funil Duplo)
-  const handleFileGenerate = async () => {
-    if (!selectedFile) {
-      toast.error("Por favor, selecione um arquivo.");
-      return;
-    }
-    setIsUploading(true);
+  const handleUrlFlow = async (url: string) => {
+    if (user) {
+      // --- LOGGED IN (URL) ---
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Sessão não encontrada');
 
-    try {
-      if (user) {
-        // --- FLUXO LOGADO (Arquivo) ---
-
-        // 2A. CORREÇÃO DO BUG RLS: Usar user.id real no path
-        const filePath = `${user.id}/${Date.now()}_${selectedFile.name}`;
-        
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('uploads')
-          .upload(filePath, selectedFile);
-
-        if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
-
-        // 3A. Chamar API segura
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Sessão não encontrada');
-
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ file_path: uploadData.path, material_title: selectedFile.name })
-        });
-        if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar quiz'); }
-        
-        const { quizId } = await response.json();
-        onGenerate({ quizId: quizId, questions: null });
-
-      } else {
-        // --- FLUXO DE CONVIDADO (Arquivo) ---
-
-        // 2B. Enviar arquivo para a nova API pública
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        
-        const response = await fetch('/api/gerar-convidado', {
-          method: 'POST',
-          body: formData
-        });
-
-        if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar amostra'); }
-        
-        const questions = await response.json();
-        onGenerate({ quizId: null, questions: questions });
-      }
-    } catch (error) {
-      console.error('Erro (Arquivo):', error);
-      toast.error(error instanceof Error ? error.message : "Algo deu errado");
-    } finally {
-      setIsUploading(false);
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ url: url, material_title: url })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error); }
+      const { quizId } = await response.json();
+      onGenerate({ quizId: quizId, questions: null });
+    } else {
+      // --- GUEST (URL) ---
+      const response = await fetch('/api/generate-url-guest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: url })
+      });
+      if (!response.ok) { const err = await response.json(); throw new Error(err.error); }
+      const questions = await response.json();
+      onGenerate({ quizId: null, questions: questions });
     }
   };
-
-  // 3. FUNÇÃO DE GERAÇÃO DE URL (Funil Duplo)
-  const handleUrlGenerate = async () => {
-    if (!linkUrl) {
-      toast.error("Por favor, insira uma URL.");
-      return;
-    }
-    setIsUploading(true);
-
-    try {
-      if (user) {
-        // --- FLUXO LOGADO (URL) ---
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) throw new Error('Sessão não encontrada');
-
-        const response = await fetch('/api/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
-          body: JSON.stringify({ url: linkUrl, material_title: linkUrl })
-        });
-        if (!response.ok) { const err = await response.json(); throw new Error(err.error); }
-        const { quizId } = await response.json();
-        onGenerate({ quizId: quizId, questions: null });
-
-      } else {
-        // --- FLUXO CONVIDADO (URL) ---
-        const response = await fetch('/api/generate-url-guest', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: linkUrl })
-        });
-        if (!response.ok) { const err = await response.json(); throw new Error(err.error); }
-        const questions = await response.json();
-        onGenerate({ quizId: null, questions: questions });
-      }
-    } catch (error) {
-      console.error('Erro (URL):', error);
-      toast.error(error instanceof Error ? error.message : "Algo deu errado");
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
 
   return (
-    <Card className="w-full max-w-2xl mx-auto p-8 bg-card/95 backdrop-blur-sm shadow-2xl border-none">
-      <div className="text-center mb-8">
-        <h1 className="text-5xl font-bold mb-4 text-foreground leading-tight">
-          Estudar não precisa ser um saco
+    <div className="w-full max-w-3xl mx-auto px-4">
+      <div className="text-center mb-10">
+        <h1 className="text-4xl md:text-5xl font-semibold mb-6 text-foreground tracking-tight">
+          O que você quer aprender hoje?
         </h1>
-        <p className="text-lg text-muted-foreground">
-          Gere flashcards e questões de múltipla escolha em segundos.
-        </p>
       </div>
 
-      <Tabs defaultValue="file" className="w-full" onValueChange={(value) => setActiveTab(value)}>
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="file" className="gap-2">
-            <Upload className="h-4 w-4" />
-            Enviar Arquivo
-          </TabsTrigger>
-          <TabsTrigger value="link" className="gap-2">
-            <LinkIcon className="h-4 w-4" />
-            Link Externo
-          </TabsTrigger>
-        </TabsList>
+      <div className="relative group">
+        <div className="relative flex items-center bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] rounded-2xl border border-transparent transition-all focus-within:shadow-[0_4px_20px_rgba(0,0,0,0.12)] focus-within:border-black/5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]">
 
-        <TabsContent value="file" className="space-y-4">
-          <div className="border-2 border-dashed border-border rounded-lg p-8 text-center hover:border-secondary transition-colors cursor-pointer">
-            <input
+          {/* File Upload Trigger */}
+          <div className="pl-4">
+             <input
               type="file"
-              id="file-upload"
+              ref={fileInputRef}
               className="hidden"
-              accept=".pdf,.pptx,.docx,.txt" // Atualizado
-              onChange={handleFileChange}
+              accept=".pdf,.pptx,.docx,.txt"
+              onChange={handleFileSelect}
             />
-            <label htmlFor="file-upload" className="cursor-pointer">
-              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground mb-2">
-                {selectedFile
-                  ? selectedFile.name
-                  : "Clique para fazer upload ou arraste arquivos aqui"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Suporta PDF, PPTX, DOCX, TXT
-              </p>
-            </label>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-10 w-10 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Paperclip className="h-5 w-5" />
+            </Button>
           </div>
-        </TabsContent>
 
-        <TabsContent value="link" className="space-y-4">
-          <Input
-            type="url"
-            placeholder="ou cole um link (ex: vídeo do YouTube)"
-            value={linkUrl}
-            onChange={(e) => setLinkUrl(e.target.value)}
-            className="h-12 text-base bg-muted/50"
-          />
-        </TabsContent>
+          {/* Main Input */}
+          {selectedFile ? (
+            <div className="flex-1 flex items-center px-4 py-4 h-16">
+              <div className="flex items-center gap-3 bg-secondary/50 px-3 py-1.5 rounded-lg border border-border/50">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium truncate max-w-[200px] md:max-w-[300px]">{selectedFile.name}</span>
+                <button onClick={handleClearFile} className="ml-2 hover:bg-black/10 rounded-full p-0.5">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <Input
+              type="text"
+              placeholder="Cole um link ou digite um tópico..."
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !isUploading) {
+                  handleSubmit();
+                }
+              }}
+              className="flex-1 border-none shadow-none focus-visible:ring-0 h-16 text-lg bg-transparent placeholder:text-muted-foreground/60"
+            />
+          )}
 
-        <Button
-          variant="jungle"
-          size="lg"
-          className="w-full mt-6"
-          onClick={handleSmartGenerate} // Chama o "cérebro"
-          disabled={(activeTab === 'file' ? !selectedFile : !linkUrl) || isUploading}
-        >
-          <Sparkles className="h-5 w-5" />
-          {isUploading ? "Gerando quiz..." : "Gerar Perguntas"}
-        </Button>
-      </Tabs>
-    </Card>
+          {/* Submit Button */}
+          <div className="pr-2">
+            <Button
+              size="icon"
+              className="h-10 w-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
+              onClick={handleSubmit}
+              disabled={isUploading || (!inputValue.trim() && !selectedFile)}
+            >
+              {isUploading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <ArrowRight className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </div>
+
+        {/* Helper Text */}
+        <div className="mt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground">
+           <span className="flex items-center gap-1.5">
+             <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+             PDF, DOCX, PPTX, TXT
+           </span>
+           <span className="flex items-center gap-1.5">
+             <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
+             YouTube Links
+           </span>
+        </div>
+      </div>
+    </div>
   );
 };

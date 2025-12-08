@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, DragEvent, useEffect } from "react";
 import { Header } from "@/components/Header";
 import { InputForm } from "@/components/InputForm";
 import { LoadingState } from "@/components/LoadingState";
@@ -6,7 +6,7 @@ import { OnboardingQuiz } from "@/components/OnboardingQuiz";
 import { QuizInterface } from "@/components/QuizInterface";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { useAuth } from "@/contexts/AuthContext";
-import jungleBackground from "@/assets/jungle-background.jpg";
+import { cn } from "@/lib/utils";
 
 interface Question {
   id: number;
@@ -21,20 +21,21 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const { isLoggedIn, hasProfile } = useAuth();
 
+  // Drag & Drop State
+  const [isDragging, setIsDragging] = useState(false);
+  const [droppedFile, setDroppedFile] = useState<File | null>(null);
+
   const handleGenerate = (result: { quizId: number | null, questions: any[] | null }) => {
     setIsLoading(true);
     setQuestions(null);
     setQuizId(null);
 
     if (result.quizId) {
-      // --- FLUXO LOGADO ---
       setQuizId(result.quizId);
-      // O QuizInterface buscará os dados, mas setamos um mock para mudar a tela
       setQuestions([{ id: 1, pergunta: "Carregando quiz...", opcoes: [], resposta_correta: "" }]); 
     } else if (result.questions) {
-      // --- FLUXO CONVIDADO ---
       setQuizId(null);
-      setQuestions(result.questions); // Seta as 5 perguntas reais da amostra
+      setQuestions(result.questions);
     }
     
     setIsLoading(false);
@@ -44,6 +45,33 @@ const Index = () => {
     setQuestions(null);
     setQuizId(null);
     setIsLoading(false);
+    setDroppedFile(null); // Reset dropped file
+  };
+
+  // Drag Handlers
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set to false if we are leaving the main container
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setDroppedFile(e.dataTransfer.files[0]);
+    }
   };
 
   const renderContent = () => {
@@ -51,48 +79,47 @@ const Index = () => {
       return <LoadingState />;
     }
 
-    // 1. Usuário logado, sem perfil -> Onboarding
     if (isLoggedIn && !hasProfile) {
       return <OnboardingQuiz />;
     }
 
-    // 2. Temos perguntas E NÃO estamos logados -> Amostra Grátis (CTA)
     if (questions && !isLoggedIn) {
       return <ResultsDisplay questions={questions} />;
     }
 
-    // 3. Temos perguntas E ESTAMOS logados (e com perfil) -> Quiz Real
     if (questions && isLoggedIn && hasProfile) {
       if (!quizId) {
-        // Isso pode acontecer se o usuário recarregar a página.
-        // Vamos apenas voltar para o InputForm.
         handleLoadNew();
-        return <InputForm onGenerate={handleGenerate} />;
+        return <InputForm onGenerate={handleGenerate} droppedFile={droppedFile} />;
       }
       return (
         <QuizInterface 
-          quizId={quizId} // Passa o ID para o componente buscar os dados reais
+          quizId={quizId}
           onLoadNew={handleLoadNew}
         />
       );
     }
 
-    // 4. Estado Padrão (Sem perguntas, Logado ou Não) -> Formulário de Input
-    return <InputForm onGenerate={handleGenerate} />;
+    return <InputForm onGenerate={handleGenerate} droppedFile={droppedFile} />;
   };
 
   return (
     <div 
-      className="min-h-screen relative overflow-hidden"
-      style={{
-        backgroundImage: `url(${jungleBackground})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
+      className={cn(
+        "min-h-screen relative overflow-hidden bg-background transition-colors duration-300",
+        isDragging && "bg-secondary/20"
+      )}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-jungle-dark/80 to-jungle-medium/70" />
-      
+      {/* Drag Overlay Feedback */}
+      {isDragging && (
+        <div className="absolute inset-4 border-4 border-dashed border-primary/50 rounded-lg z-50 pointer-events-none flex items-center justify-center bg-background/50 backdrop-blur-sm">
+          <p className="text-2xl font-medium text-primary">Solte o arquivo para começar</p>
+        </div>
+      )}
+
       <div className="relative z-10">
         <Header />
         
