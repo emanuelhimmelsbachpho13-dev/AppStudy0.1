@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Upload, Paperclip, ArrowRight, X, FileText, Loader2, PlayCircle } from "lucide-react";
+import { ArrowRight, X, FileText, Loader2, Lightbulb } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -19,32 +18,12 @@ const ALLOWED_FILE_TYPES = [
   'text/plain',
 ];
 
-const MOCK_QUESTIONS = [
-  {
-    id: 1,
-    pergunta: "Qual é o principal benefício da aprendizagem ativa?",
-    opcoes: ["Memorização passiva", "Maior retenção de longo prazo", "Leitura mais rápida", "Menos esforço cognitivo"],
-    resposta_correta: "Maior retenção de longo prazo"
-  },
-  {
-    id: 2,
-    pergunta: "O que caracteriza o método Pomodoro?",
-    opcoes: ["Estudar 4 horas seguidas", "Intervalos de 5 minutos a cada 25 minutos", "Ler sem pausas", "Ouvir música enquanto estuda"],
-    resposta_correta: "Intervalos de 5 minutos a cada 25 minutos"
-  },
-  {
-    id: 3,
-    pergunta: "Como a IA pode auxiliar nos estudos?",
-    opcoes: ["Substituindo o professor", "Gerando resumos e questões personalizadas", "Escrevendo a redação inteira", "Eliminando a necessidade de ler"],
-    resposta_correta: "Gerando resumos e questões personalizadas"
-  }
-];
-
 export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -68,13 +47,6 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     await processSubmission(file, "");
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && validateFile(file)) {
-      setSelectedFile(file);
-    }
-  };
-
   const handleClearFile = () => {
     setSelectedFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -84,14 +56,19 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     await processSubmission(selectedFile, inputValue);
   };
 
-  const handleDemoClick = () => {
-    setIsUploading(true);
-    // Simulate a small delay for realism
-    setTimeout(() => {
-      setIsUploading(false);
-      onGenerate({ quizId: null, questions: MOCK_QUESTIONS });
-      toast.success("Exemplo carregado com sucesso!");
-    }, 800);
+  const handleInspireClick = () => {
+    const examples = [
+      "Explique a Teoria da Relatividade de Einstein",
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "Resumo sobre a Revolução Industrial",
+      "Quais são os princípios do Clean Code?"
+    ];
+    const randomExample = examples[Math.floor(Math.random() * examples.length)];
+    // Directly set the string value
+    setInputValue(randomExample);
+    // Focus the textarea
+    const textarea = document.querySelector('textarea');
+    if (textarea) textarea.focus();
   };
 
   const processSubmission = async (fileToProcess: File | null, textInput: string) => {
@@ -180,107 +157,133 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     }
   };
 
+  // Drag handlers for the specific input area
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (validateFile(file)) {
+         setSelectedFile(file);
+      }
+    }
+  };
+
   return (
-    <div className="w-full max-w-3xl mx-auto px-4">
-      <div className="text-center mb-10">
-        <h1 className="text-4xl md:text-5xl font-medium mb-4 text-foreground tracking-tight leading-tight">
-          O que você quer aprender hoje?
+    <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center">
+      <div className="text-center mb-10 space-y-4">
+        <h1 className="text-5xl md:text-6xl font-light text-gradient-slim tracking-tight leading-tight">
+          Aprenda qualquer coisa.
         </h1>
-        <p className="text-muted-foreground font-light text-lg">
-          Transforme qualquer conteúdo em quiz.
+        <p className="text-zinc-500 font-light text-xl max-w-2xl mx-auto">
+          Transforme links, arquivos ou textos em quizzes interativos instantaneamente.
         </p>
       </div>
 
-      <div className="relative group">
-        <div className={cn(
-            "relative flex items-center bg-white rounded-xl border border-zinc-200 transition-all",
-            "shadow-[0_2px_8px_rgba(0,0,0,0.04)]", // Sombra muito sutil
-            "focus-within:shadow-[0_4px_12px_rgba(0,0,0,0.06)] focus-within:border-black/10",
-            "hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-black/10"
+      <div className="w-full relative group">
+        <div
+           onDragEnter={handleDragEnter}
+           onDragOver={handleDragEnter}
+           onDragLeave={handleDragLeave}
+           onDrop={handleDrop}
+           className={cn(
+            "relative w-full bg-white rounded-2xl border transition-all duration-300",
+            dragActive ? "border-black border-2 bg-zinc-50" : "border-zinc-200",
+            !dragActive && "hover:border-zinc-300 focus-within:border-black focus-within:ring-1 focus-within:ring-black",
+            "shadow-sm hover:shadow-md",
+            selectedFile ? "p-4" : "p-0"
           )}>
 
-          <div className="pl-3">
-             <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept=".pdf,.pptx,.docx,.txt"
-              onChange={handleFileSelect}
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-10 w-10 rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Paperclip className="h-5 w-5" />
-            </Button>
-          </div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            className="hidden"
+            accept=".pdf,.pptx,.docx,.txt"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file && validateFile(file)) setSelectedFile(file);
+            }}
+          />
 
           {selectedFile ? (
-            <div className="flex-1 flex items-center px-4 py-4 h-16">
-              <div className="flex items-center gap-3 bg-zinc-50 px-3 py-1.5 rounded-md border border-zinc-200">
-                <FileText className="h-4 w-4 text-black" />
-                <span className="text-sm font-medium truncate max-w-[200px] md:max-w-[300px]">{selectedFile.name}</span>
-                <button onClick={handleClearFile} className="ml-2 hover:bg-black/10 rounded-full p-0.5">
-                  <X className="h-3 w-3" />
-                </button>
+            <div className="flex items-center justify-between w-full h-32 md:h-40 bg-zinc-50 rounded-xl border border-dashed border-zinc-300 px-6">
+              <div className="flex items-center gap-4">
+                <div className="bg-white p-3 rounded-lg border border-zinc-200 shadow-sm">
+                  <FileText className="h-8 w-8 text-black" />
+                </div>
+                <div>
+                  <p className="font-medium text-lg text-black">{selectedFile.name}</p>
+                  <p className="text-zinc-500 text-sm">{(selectedFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleClearFile}
+                className="hover:bg-zinc-200 rounded-full h-10 w-10"
+              >
+                <X className="h-5 w-5" />
+              </Button>
             </div>
           ) : (
-            <Input
-              type="text"
-              placeholder="Cole um link do YouTube, digite um tema ou arraste um arquivo..."
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !isUploading) {
-                  handleSubmit();
-                }
-              }}
-              className="flex-1 border-none shadow-none focus-visible:ring-0 h-14 text-base md:text-lg bg-transparent placeholder:text-muted-foreground/50 font-light"
-            />
+            <div className="relative">
+              {/* Lightbulb Icon - Top Left inside input */}
+              <button
+                onClick={handleInspireClick}
+                className="absolute top-4 left-4 p-2 text-zinc-400 hover:text-yellow-500 transition-colors z-10 hover:bg-zinc-100 rounded-full"
+                title="Me dê um exemplo"
+              >
+                <Lightbulb className="w-5 h-5" />
+              </button>
+
+              <textarea
+                placeholder="O que você quer aprender hoje? Cole um link, digite um tópico ou arraste um arquivo..."
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={(e) => {
+                   if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    if (!isUploading && inputValue.trim()) handleSubmit();
+                   }
+                }}
+                className="w-full min-h-[160px] md:min-h-[200px] p-6 pl-14 pr-6 text-lg md:text-xl font-light bg-transparent border-none resize-none focus:ring-0 placeholder:text-zinc-300"
+                style={{ outline: 'none', boxShadow: 'none' }}
+                spellCheck={false}
+              />
+
+              {/* Bottom Actions */}
+              <div className="absolute bottom-4 right-4 flex items-center gap-3">
+                 <span className="text-xs text-zinc-300 font-light hidden md:inline-block pointer-events-none select-none">
+                    {dragActive ? "Solte o arquivo!" : "Arraste arquivos PDF, DOCX, PPTX"}
+                 </span>
+                 <Button
+                  size="lg"
+                  className="h-12 w-12 rounded-full bg-black text-white hover:bg-black/80 shadow-lg transition-all disabled:opacity-50 p-0 flex items-center justify-center"
+                  onClick={handleSubmit}
+                  disabled={isUploading || (!inputValue.trim() && !selectedFile)}
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-6 w-6 animate-spin" />
+                  ) : (
+                    <ArrowRight className="h-6 w-6" />
+                  )}
+                </Button>
+              </div>
+            </div>
           )}
-
-          <div className="pr-2">
-            <Button
-              size="icon"
-              className="h-10 w-10 rounded-lg bg-black text-white hover:bg-black/80 transition-all disabled:opacity-50"
-              onClick={handleSubmit}
-              disabled={isUploading || (!inputValue.trim() && !selectedFile)}
-            >
-              {isUploading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <ArrowRight className="h-5 w-5" />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Helper Text & Demo Button */}
-        <div className="mt-6 flex flex-col items-center gap-4">
-           <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground/70 font-normal">
-             <span className="flex items-center gap-1.5">
-               <div className="w-1 h-1 rounded-full bg-zinc-300" />
-               PDF, DOCX, PPTX, TXT
-             </span>
-             <span className="flex items-center gap-1.5">
-               <div className="w-1 h-1 rounded-full bg-zinc-300" />
-               YouTube Links
-             </span>
-           </div>
-
-           <button
-            onClick={handleDemoClick}
-            className="flex items-center gap-2 text-sm text-zinc-500 hover:text-black transition-colors group"
-           >
-             <span>Não tem material?</span>
-             <span className="font-medium underline decoration-1 underline-offset-4 decoration-zinc-300 group-hover:decoration-black flex items-center gap-1">
-               <PlayCircle className="w-3 h-3" />
-               Ver um exemplo
-             </span>
-           </button>
         </div>
       </div>
     </div>
