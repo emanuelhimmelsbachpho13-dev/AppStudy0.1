@@ -47,14 +47,6 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        jungle: {
-          dark: "hsl(var(--jungle-dark))",
-          medium: "hsl(var(--jungle-medium))",
-          light: "hsl(var(--jungle-light))",
-          accent: "hsl(var(--jungle-accent))",
-          "bg-start": "hsl(var(--jungle-bg-start))",
-          "bg-end": "hsl(var(--jungle-bg-end))",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
