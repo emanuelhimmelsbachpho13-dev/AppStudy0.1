@@ -23,7 +23,7 @@ export const Header = () => {
             <img src="/logo.png" alt="AppStudy Logo" className="h-10 w-auto" />
           </Link>
 
-          {/* Centered Navigation - Only "Início" */}
+          {/* Centered Navigation */}
           <nav className="hidden md:flex items-center gap-6">
             <NavLink
               to="/"
@@ -31,6 +31,27 @@ export const Header = () => {
               activeClassName="text-foreground font-medium"
             >
               Início
+            </NavLink>
+            <NavLink
+              to="/pricing"
+              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Preços
+            </NavLink>
+            <NavLink
+              to="/blog"
+              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Blog
+            </NavLink>
+            <NavLink
+              to="/documento"
+              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
+              activeClassName="text-foreground font-medium"
+            >
+              Documento
             </NavLink>
           </nav>
         </div>
