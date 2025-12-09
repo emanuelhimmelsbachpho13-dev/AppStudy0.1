@@ -7,8 +7,7 @@ import { QuizInterface } from "@/components/QuizInterface";
 import { ResultsDisplay } from "@/components/ResultsDisplay";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Zap, Layout, Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { CheckCircle2, Zap, Layout } from "lucide-react";
 
 interface Question {
   id: number;
@@ -23,7 +22,7 @@ const Index = () => {
   const [questions, setQuestions] = useState<Question[] | null>(null);
   const { isLoggedIn, hasProfile } = useAuth();
 
-  // Drag & Drop State
+  // Drag & Drop State (Global)
   const [isDragging, setIsDragging] = useState(false);
   const [droppedFile, setDroppedFile] = useState<File | null>(null);
 
@@ -50,7 +49,7 @@ const Index = () => {
     setDroppedFile(null); // Reset dropped file
   };
 
-  // Drag Handlers
+  // Drag Handlers for the entire page
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -144,74 +143,28 @@ const Index = () => {
         {/* Show Landing Page Sections only if NOT showing quiz/results */}
         {!isShowingQuiz && (
           <>
-            {/* How It Works */}
+            {/* How It Works - Young/Direct Copy */}
             <section className="w-full py-24 bg-white border-t border-zinc-100">
               <div className="container mx-auto px-4">
                  <div className="text-center mb-16">
-                    <h2 className="text-3xl font-medium mb-4">Como funciona</h2>
-                    <p className="text-zinc-500 font-light">Transforme horas de estudo em minutos.</p>
+                    <h2 className="text-3xl font-medium mb-4">Como funciona?</h2>
+                    <p className="text-zinc-500 font-light">É mais simples do que parece.</p>
                  </div>
 
                  <div className="grid md:grid-cols-3 gap-12 max-w-5xl mx-auto">
                     {[
-                      { icon: Layout, title: "1. Envie seu Material", desc: "Cole um link do YouTube ou arraste um PDF, DOCX ou PPTX." },
-                      { icon: Zap, title: "2. IA Processa", desc: "Nossa tecnologia analisa o conteúdo e identifica os pontos chave." },
-                      { icon: CheckCircle2, title: "3. Pratique", desc: "Receba um quiz personalizado para fixar o conhecimento." }
+                      { icon: Layout, title: "1. Joga o conteúdo", desc: "PDF, link do YouTube, anotações... Cola aí ou arrasta pra tela." },
+                      { icon: Zap, title: "2. A mágica acontece", desc: "A IA lê tudo em segundos e cria um quiz personalizado." },
+                      { icon: CheckCircle2, title: "3. Vire mestre", desc: "Pratique com repetição espaçada e domine o assunto." }
                     ].map((item, i) => (
                       <div key={i} className="flex flex-col items-center text-center group">
                         <div className="w-16 h-16 rounded-2xl bg-zinc-50 border border-zinc-200 flex items-center justify-center mb-6 group-hover:border-black transition-colors">
                           <item.icon className="w-6 h-6 text-black stroke-[1.5]" />
                         </div>
                         <h3 className="text-xl font-medium mb-2">{item.title}</h3>
-                        <p className="text-zinc-500 font-light leading-relaxed">{item.desc}</p>
+                        <p className="text-zinc-500 font-light leading-relaxed max-w-xs">{item.desc}</p>
                       </div>
                     ))}
-                 </div>
-              </div>
-            </section>
-
-            {/* Pricing Preview */}
-            <section className="w-full py-24 bg-zinc-50/50 border-t border-zinc-100">
-              <div className="container mx-auto px-4">
-                 <div className="text-center mb-16">
-                    <h2 className="text-3xl font-medium mb-4">Planos Simples</h2>
-                    <p className="text-zinc-500 font-light">Comece grátis, evolua quando precisar.</p>
-                 </div>
-
-                 <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                    {/* Free */}
-                    <div className="bg-white p-8 rounded-2xl border border-zinc-200 shadow-sm flex flex-col">
-                       <h3 className="text-xl font-medium mb-2">Basic</h3>
-                       <div className="text-3xl font-semibold mb-6">R$ 0</div>
-                       <ul className="space-y-4 mb-8 flex-1">
-                          <li className="flex items-center gap-3 text-sm text-zinc-600">
-                            <CheckCircle2 className="w-4 h-4 text-black" /> 3 gerações por dia
-                          </li>
-                          <li className="flex items-center gap-3 text-sm text-zinc-600">
-                            <CheckCircle2 className="w-4 h-4 text-black" /> Uploads de até 5MB
-                          </li>
-                       </ul>
-                       <Button variant="outline" className="w-full border-zinc-200 hover:bg-zinc-50">Começar Grátis</Button>
-                    </div>
-
-                    {/* Pro */}
-                    <div className="bg-white p-8 rounded-2xl border border-black shadow-md flex flex-col relative overflow-hidden">
-                       <div className="absolute top-0 right-0 bg-black text-white text-xs px-3 py-1 rounded-bl-xl font-medium">POPULAR</div>
-                       <h3 className="text-xl font-medium mb-2">Pro</h3>
-                       <div className="text-3xl font-semibold mb-6">R$ 20<span className="text-base font-normal text-zinc-400">/mês</span></div>
-                       <ul className="space-y-4 mb-8 flex-1">
-                          <li className="flex items-center gap-3 text-sm text-zinc-900 font-medium">
-                            <CheckCircle2 className="w-4 h-4 text-black" /> Gerações ilimitadas
-                          </li>
-                          <li className="flex items-center gap-3 text-sm text-zinc-900 font-medium">
-                            <CheckCircle2 className="w-4 h-4 text-black" /> Histórico completo
-                          </li>
-                          <li className="flex items-center gap-3 text-sm text-zinc-900 font-medium">
-                            <CheckCircle2 className="w-4 h-4 text-black" /> Suporte prioritário
-                          </li>
-                       </ul>
-                       <Button className="w-full bg-black text-white hover:bg-black/90">Assinar Pro</Button>
-                    </div>
                  </div>
               </div>
             </section>
@@ -219,15 +172,15 @@ const Index = () => {
         )}
       </main>
 
-      {/* Simple Footer */}
+      {/* Minimalist Footer */}
       {!isShowingQuiz && (
          <footer className="py-8 border-t border-zinc-100 bg-white">
             <div className="container mx-auto px-4 flex flex-col md:flex-row items-center justify-between text-sm text-zinc-500 font-light">
                <p>© 2024 AppStudy Inc.</p>
                <div className="flex gap-6 mt-4 md:mt-0">
-                  <a href="#" className="hover:text-black">Termos</a>
-                  <a href="#" className="hover:text-black">Privacidade</a>
-                  <a href="#" className="hover:text-black">Twitter</a>
+                  <a href="#" className="hover:text-black transition-colors">Termos</a>
+                  <a href="#" className="hover:text-black transition-colors">Privacidade</a>
+                  <a href="#" className="hover:text-black transition-colors">Twitter</a>
                </div>
             </div>
          </footer>

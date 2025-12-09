@@ -18,32 +18,12 @@ const ALLOWED_FILE_TYPES = [
   'text/plain',
 ];
 
-const MOCK_QUESTIONS = [
-  {
-    id: 1,
-    pergunta: "Qual é o principal benefício da aprendizagem ativa?",
-    opcoes: ["Memorização passiva", "Maior retenção de longo prazo", "Leitura mais rápida", "Menos esforço cognitivo"],
-    resposta_correta: "Maior retenção de longo prazo"
-  },
-  {
-    id: 2,
-    pergunta: "O que caracteriza o método Pomodoro?",
-    opcoes: ["Estudar 4 horas seguidas", "Intervalos de 5 minutos a cada 25 minutos", "Ler sem pausas", "Ouvir música enquanto estuda"],
-    resposta_correta: "Intervalos de 5 minutos a cada 25 minutos"
-  },
-  {
-    id: 3,
-    pergunta: "Como a IA pode auxiliar nos estudos?",
-    opcoes: ["Substituindo o professor", "Gerando resumos e questões personalizadas", "Escrevendo a redação inteira", "Eliminando a necessidade de ler"],
-    resposta_correta: "Gerando resumos e questões personalizadas"
-  }
-];
-
 export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -84,8 +64,9 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
       "Quais são os princípios do Clean Code?"
     ];
     const randomExample = examples[Math.floor(Math.random() * examples.length)];
+    // Directly set the string value
     setInputValue(randomExample);
-    // Optional: Focus the input after setting value
+    // Focus the textarea
     const textarea = document.querySelector('textarea');
     if (textarea) textarea.focus();
   };
@@ -176,6 +157,31 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     }
   };
 
+  // Drag handlers for the specific input area
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (validateFile(file)) {
+         setSelectedFile(file);
+      }
+    }
+  };
+
   return (
     <div className="w-full max-w-4xl mx-auto px-4 flex flex-col items-center">
       <div className="text-center mb-10 space-y-4">
@@ -188,9 +194,15 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
       </div>
 
       <div className="w-full relative group">
-        <div className={cn(
+        <div
+           onDragEnter={handleDragEnter}
+           onDragOver={handleDragEnter}
+           onDragLeave={handleDragLeave}
+           onDrop={handleDrop}
+           className={cn(
             "relative w-full bg-white rounded-2xl border transition-all duration-300",
-            "border-zinc-200 hover:border-zinc-300 focus-within:border-black focus-within:ring-1 focus-within:ring-black",
+            dragActive ? "border-black border-2 bg-zinc-50" : "border-zinc-200",
+            !dragActive && "hover:border-zinc-300 focus-within:border-black focus-within:ring-1 focus-within:ring-black",
             "shadow-sm hover:shadow-md",
             selectedFile ? "p-4" : "p-0"
           )}>
@@ -228,11 +240,11 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
             </div>
           ) : (
             <div className="relative">
-              {/* Lightbulb Icon */}
+              {/* Lightbulb Icon - Top Left inside input */}
               <button
                 onClick={handleInspireClick}
-                className="absolute top-4 left-4 p-2 text-zinc-400 hover:text-yellow-500 transition-colors z-10"
-                title="Me dê uma ideia"
+                className="absolute top-4 left-4 p-2 text-zinc-400 hover:text-yellow-500 transition-colors z-10 hover:bg-zinc-100 rounded-full"
+                title="Me dê um exemplo"
               >
                 <Lightbulb className="w-5 h-5" />
               </button>
@@ -255,7 +267,7 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
               {/* Bottom Actions */}
               <div className="absolute bottom-4 right-4 flex items-center gap-3">
                  <span className="text-xs text-zinc-300 font-light hidden md:inline-block pointer-events-none select-none">
-                    Arraste arquivos PDF, DOCX, PPTX
+                    {dragActive ? "Solte o arquivo!" : "Arraste arquivos PDF, DOCX, PPTX"}
                  </span>
                  <Button
                   size="lg"
