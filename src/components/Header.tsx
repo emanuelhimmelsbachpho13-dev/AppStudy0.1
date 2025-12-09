@@ -18,12 +18,12 @@ export const Header = () => {
     <>
       <header className="w-full py-4 px-6 md:px-12 flex items-center justify-between border-b border-border/40 bg-background/80 backdrop-blur-md sticky top-0 z-50">
         <div className="flex items-center gap-8">
-          {/* Logo - Minimalist Black */}
-          <Link to="/" className="text-xl font-medium tracking-tight text-foreground hover:opacity-80 transition-opacity">
-            AppStudy
+          {/* Logo - Image Replaces Text */}
+          <Link to="/" className="hover:opacity-80 transition-opacity flex items-center">
+            <img src="/logo.png" alt="AppStudy Logo" className="h-10 w-auto" />
           </Link>
 
-          {/* Centered Navigation */}
+          {/* Centered Navigation - Only "Início" */}
           <nav className="hidden md:flex items-center gap-6">
             <NavLink
               to="/"
@@ -31,27 +31,6 @@ export const Header = () => {
               activeClassName="text-foreground font-medium"
             >
               Início
-            </NavLink>
-            <NavLink
-              to="/?mode=text"
-              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
-            >
-              Texto
-            </NavLink>
-            <NavLink
-              to="/blog"
-              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
-            >
-              Blog
-            </NavLink>
-            <NavLink
-              to="/pricing"
-              className="text-sm font-normal text-muted-foreground hover:text-foreground transition-colors"
-              activeClassName="text-foreground font-medium"
-            >
-              Preços
             </NavLink>
           </nav>
         </div>
