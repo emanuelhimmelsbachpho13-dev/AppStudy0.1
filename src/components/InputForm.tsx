@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Upload, Paperclip, ArrowRight, X, FileText, Loader2 } from "lucide-react";
+import { Upload, Paperclip, ArrowRight, X, FileText, Loader2, PlayCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface InputFormProps {
   onGenerate: (result: { quizId: number | null, questions: any[] | null }) => void;
@@ -19,6 +19,27 @@ const ALLOWED_FILE_TYPES = [
   'text/plain',
 ];
 
+const MOCK_QUESTIONS = [
+  {
+    id: 1,
+    pergunta: "Qual é o principal benefício da aprendizagem ativa?",
+    opcoes: ["Memorização passiva", "Maior retenção de longo prazo", "Leitura mais rápida", "Menos esforço cognitivo"],
+    resposta_correta: "Maior retenção de longo prazo"
+  },
+  {
+    id: 2,
+    pergunta: "O que caracteriza o método Pomodoro?",
+    opcoes: ["Estudar 4 horas seguidas", "Intervalos de 5 minutos a cada 25 minutos", "Ler sem pausas", "Ouvir música enquanto estuda"],
+    resposta_correta: "Intervalos de 5 minutos a cada 25 minutos"
+  },
+  {
+    id: 3,
+    pergunta: "Como a IA pode auxiliar nos estudos?",
+    opcoes: ["Substituindo o professor", "Gerando resumos e questões personalizadas", "Escrevendo a redação inteira", "Eliminando a necessidade de ler"],
+    resposta_correta: "Gerando resumos e questões personalizadas"
+  }
+];
+
 export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   const { user } = useAuth();
   const [inputValue, setInputValue] = useState("");
@@ -26,15 +47,10 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Handle dropped file prop changes
   useEffect(() => {
     if (droppedFile) {
       if (validateFile(droppedFile)) {
         setSelectedFile(droppedFile);
-        // Automatically start upload if dropped? User prompt says "site deve reagir visualmente... e iniciar o upload imediatamente".
-        // To be safe and avoid recursion or duplicate calls if useEffect fires multiple times, we might want a flag or just call the submit function.
-        // However, we need to be careful with async inside useEffect.
-        // Let's set the file and maybe trigger a separate effect or just call a function.
         handleAutoSubmit(droppedFile);
       }
     }
@@ -49,7 +65,6 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   };
 
   const handleAutoSubmit = async (file: File) => {
-    // Need to wait for state update or pass file directly
     await processSubmission(file, "");
   };
 
@@ -69,6 +84,16 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     await processSubmission(selectedFile, inputValue);
   };
 
+  const handleDemoClick = () => {
+    setIsUploading(true);
+    // Simulate a small delay for realism
+    setTimeout(() => {
+      setIsUploading(false);
+      onGenerate({ quizId: null, questions: MOCK_QUESTIONS });
+      toast.success("Exemplo carregado com sucesso!");
+    }, 800);
+  };
+
   const processSubmission = async (fileToProcess: File | null, textInput: string) => {
     if (!fileToProcess && !textInput.trim()) {
       toast.error("Por favor, digite um tópico, cole um link ou envie um arquivo.");
@@ -78,7 +103,6 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
     setIsUploading(true);
 
     try {
-      // Determine mode: File, URL, or Topic
       let processingFile = fileToProcess;
       let processingUrl = "";
 
@@ -86,7 +110,6 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
         if (textInput.startsWith("http://") || textInput.startsWith("https://")) {
           processingUrl = textInput;
         } else {
-          // Topic mode: Create a text file from the input
           const blob = new Blob([textInput], { type: "text/plain" });
           processingFile = new File([blob], "topic.txt", { type: "text/plain" });
         }
@@ -108,12 +131,8 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
 
   const handleFileFlow = async (file: File) => {
     if (user) {
-      // --- LOGGED IN (File) ---
       const filePath = `${user.id}/${Date.now()}_${file.name}`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('uploads')
-        .upload(filePath, file);
-
+      const { data: uploadData, error: uploadError } = await supabase.storage.from('uploads').upload(filePath, file);
       if (uploadError) throw new Error(`Erro no upload: ${uploadError.message}`);
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -125,21 +144,13 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
         body: JSON.stringify({ file_path: uploadData.path, material_title: file.name })
       });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar quiz'); }
-
       const { quizId } = await response.json();
       onGenerate({ quizId: quizId, questions: null });
     } else {
-      // --- GUEST (File) ---
       const formData = new FormData();
       formData.append('file', file);
-
-      const response = await fetch('/api/gerar-convidado', {
-        method: 'POST',
-        body: formData
-      });
-
+      const response = await fetch('/api/gerar-convidado', { method: 'POST', body: formData });
       if (!response.ok) { const err = await response.json(); throw new Error(err.error || 'Erro ao gerar amostra'); }
-
       const questions = await response.json();
       onGenerate({ quizId: null, questions: questions });
     }
@@ -147,10 +158,8 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
 
   const handleUrlFlow = async (url: string) => {
     if (user) {
-      // --- LOGGED IN (URL) ---
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('Sessão não encontrada');
-
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
@@ -160,7 +169,6 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
       const { quizId } = await response.json();
       onGenerate({ quizId: quizId, questions: null });
     } else {
-      // --- GUEST (URL) ---
       const response = await fetch('/api/generate-url-guest', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,16 +183,23 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
   return (
     <div className="w-full max-w-3xl mx-auto px-4">
       <div className="text-center mb-10">
-        <h1 className="text-4xl md:text-5xl font-semibold mb-6 text-foreground tracking-tight">
+        <h1 className="text-4xl md:text-5xl font-medium mb-4 text-foreground tracking-tight leading-tight">
           O que você quer aprender hoje?
         </h1>
+        <p className="text-muted-foreground font-light text-lg">
+          Transforme qualquer conteúdo em quiz.
+        </p>
       </div>
 
       <div className="relative group">
-        <div className="relative flex items-center bg-white shadow-[0_2px_12px_rgba(0,0,0,0.08)] rounded-2xl border border-transparent transition-all focus-within:shadow-[0_4px_20px_rgba(0,0,0,0.12)] focus-within:border-black/5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.1)]">
+        <div className={cn(
+            "relative flex items-center bg-white rounded-xl border border-zinc-200 transition-all",
+            "shadow-[0_2px_8px_rgba(0,0,0,0.04)]", // Sombra muito sutil
+            "focus-within:shadow-[0_4px_12px_rgba(0,0,0,0.06)] focus-within:border-black/10",
+            "hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] hover:border-black/10"
+          )}>
 
-          {/* File Upload Trigger */}
-          <div className="pl-4">
+          <div className="pl-3">
              <input
               type="file"
               ref={fileInputRef}
@@ -202,11 +217,10 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
             </Button>
           </div>
 
-          {/* Main Input */}
           {selectedFile ? (
             <div className="flex-1 flex items-center px-4 py-4 h-16">
-              <div className="flex items-center gap-3 bg-secondary/50 px-3 py-1.5 rounded-lg border border-border/50">
-                <FileText className="h-4 w-4 text-primary" />
+              <div className="flex items-center gap-3 bg-zinc-50 px-3 py-1.5 rounded-md border border-zinc-200">
+                <FileText className="h-4 w-4 text-black" />
                 <span className="text-sm font-medium truncate max-w-[200px] md:max-w-[300px]">{selectedFile.name}</span>
                 <button onClick={handleClearFile} className="ml-2 hover:bg-black/10 rounded-full p-0.5">
                   <X className="h-3 w-3" />
@@ -216,7 +230,7 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
           ) : (
             <Input
               type="text"
-              placeholder="Cole um link ou digite um tópico..."
+              placeholder="Cole um link do YouTube, digite um tema ou arraste um arquivo..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={(e) => {
@@ -224,15 +238,14 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
                   handleSubmit();
                 }
               }}
-              className="flex-1 border-none shadow-none focus-visible:ring-0 h-16 text-lg bg-transparent placeholder:text-muted-foreground/60"
+              className="flex-1 border-none shadow-none focus-visible:ring-0 h-14 text-base md:text-lg bg-transparent placeholder:text-muted-foreground/50 font-light"
             />
           )}
 
-          {/* Submit Button */}
           <div className="pr-2">
             <Button
               size="icon"
-              className="h-10 w-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 transition-all disabled:opacity-50"
+              className="h-10 w-10 rounded-lg bg-black text-white hover:bg-black/80 transition-all disabled:opacity-50"
               onClick={handleSubmit}
               disabled={isUploading || (!inputValue.trim() && !selectedFile)}
             >
@@ -245,16 +258,29 @@ export const InputForm = ({ onGenerate, droppedFile }: InputFormProps) => {
           </div>
         </div>
 
-        {/* Helper Text */}
-        <div className="mt-4 flex items-center justify-center gap-6 text-xs text-muted-foreground">
-           <span className="flex items-center gap-1.5">
-             <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-             PDF, DOCX, PPTX, TXT
-           </span>
-           <span className="flex items-center gap-1.5">
-             <div className="w-1 h-1 rounded-full bg-muted-foreground/50" />
-             YouTube Links
-           </span>
+        {/* Helper Text & Demo Button */}
+        <div className="mt-6 flex flex-col items-center gap-4">
+           <div className="flex items-center justify-center gap-6 text-xs text-muted-foreground/70 font-normal">
+             <span className="flex items-center gap-1.5">
+               <div className="w-1 h-1 rounded-full bg-zinc-300" />
+               PDF, DOCX, PPTX, TXT
+             </span>
+             <span className="flex items-center gap-1.5">
+               <div className="w-1 h-1 rounded-full bg-zinc-300" />
+               YouTube Links
+             </span>
+           </div>
+
+           <button
+            onClick={handleDemoClick}
+            className="flex items-center gap-2 text-sm text-zinc-500 hover:text-black transition-colors group"
+           >
+             <span>Não tem material?</span>
+             <span className="font-medium underline decoration-1 underline-offset-4 decoration-zinc-300 group-hover:decoration-black flex items-center gap-1">
+               <PlayCircle className="w-3 h-3" />
+               Ver um exemplo
+             </span>
+           </button>
         </div>
       </div>
     </div>
