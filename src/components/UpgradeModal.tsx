@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { CheckCircle2, Sparkles, Zap, Clock, Shield, TrendingUp } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface UpgradeModalProps {
   open: boolean;
@@ -38,113 +39,114 @@ export const UpgradeModal = ({ open, onOpenChange }: UpgradeModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-3xl font-bold text-center text-foreground mb-2">
-            Desbloqueie Todo o Potencial
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-white border border-zinc-100 shadow-2xl rounded-2xl">
+        <DialogHeader className="mb-6">
+          <DialogTitle className="text-3xl font-medium text-center text-black tracking-tight mb-2">
+            Plano Profissional
           </DialogTitle>
-          <p className="text-center text-muted-foreground">
-            Escolha o plano ideal para turbinar seus estudos
+          <p className="text-center text-zinc-500 text-lg font-light">
+            Desbloqueie todo o potencial dos seus estudos
           </p>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
-          {/* Benefits */}
-          <div className="space-y-3">
-            {benefits.map((benefit, index) => {
-              const Icon = benefit.icon;
-              return (
-                <div key={index} className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary/20 flex items-center justify-center">
-                    <Icon className="w-5 h-5 text-secondary" />
-                  </div>
-                  <p className="text-foreground font-medium">{benefit.text}</p>
-                </div>
-              );
-            })}
-          </div>
-
+        <div className="space-y-8 py-4 px-2">
           {/* Pricing Cards */}
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Monthly Plan */}
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Monthly Plan - Basic Style */}
             <div
               onClick={() => setSelectedPlan('monthly')}
-              className={`cursor-pointer p-6 rounded-xl border-2 transition-all ${
+              className={cn(
+                "cursor-pointer p-8 rounded-xl border transition-all duration-200 relative bg-white",
                 selectedPlan === 'monthly'
-                  ? 'border-secondary bg-secondary/5 shadow-lg'
-                  : 'border-border hover:border-secondary/50'
-              }`}
+                  ? "border-black ring-1 ring-black shadow-sm"
+                  : "border-zinc-200 hover:border-zinc-400"
+              )}
             >
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Mensal</h3>
-                  <p className="text-sm text-muted-foreground">Cancele quando quiser</p>
+                  <h3 className="text-xl font-medium text-black">Mensal</h3>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-foreground">R$ 20</span>
-                  <span className="text-muted-foreground">/mês</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-semibold text-black">R$ 20</span>
+                  <span className="text-zinc-500">/mês</span>
                 </div>
+                <p className="text-sm text-zinc-500 font-light">Faturamento mensal. Cancele a qualquer momento.</p>
+
                 {selectedPlan === 'monthly' && (
-                  <div className="flex items-center gap-2 text-secondary">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-sm font-medium">Selecionado</span>
+                  <div className="absolute top-4 right-4 text-black">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Annual Plan */}
+            {/* Annual Plan - Recommended Style */}
             <div
               onClick={() => setSelectedPlan('annual')}
-              className={`cursor-pointer p-6 rounded-xl border-2 transition-all relative ${
+              className={cn(
+                "cursor-pointer p-8 rounded-xl border transition-all duration-200 relative bg-white",
                 selectedPlan === 'annual'
-                  ? 'border-secondary bg-secondary/5 shadow-lg'
-                  : 'border-border hover:border-secondary/50'
-              }`}
+                  ? "border-black ring-1 ring-black shadow-md"
+                  : "border-zinc-200 hover:border-zinc-400"
+              )}
             >
-              <div className="absolute -top-3 right-4 bg-accent text-accent-foreground px-3 py-1 rounded-full text-xs font-bold">
-                50% OFF
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black text-white px-4 py-1 rounded-full text-xs font-medium tracking-wide uppercase">
+                Recomendado
               </div>
-              <div className="space-y-3">
+
+              <div className="space-y-4">
                 <div>
-                  <h3 className="text-lg font-semibold text-foreground">Anual</h3>
-                  <p className="text-sm text-muted-foreground">Economize R$ 120/ano</p>
+                  <h3 className="text-xl font-medium text-black">Anual</h3>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold text-foreground">R$ 120</span>
-                  <span className="text-muted-foreground">/ano</span>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-semibold text-black">R$ 120</span>
+                  <span className="text-zinc-500">/ano</span>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <span className="line-through">R$ 240</span>
-                  <span className="ml-2 text-secondary font-semibold">R$ 10/mês</span>
-                </div>
-                {selectedPlan === 'annual' && (
-                  <div className="flex items-center gap-2 text-secondary">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span className="text-sm font-medium">Selecionado</span>
+                <p className="text-sm text-zinc-500 font-light">
+                  Equivalente a <span className="font-medium text-black">R$ 10/mês</span>. Economize 50%.
+                </p>
+                 {selectedPlan === 'annual' && (
+                  <div className="absolute top-4 right-4 text-black">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+
+           {/* Benefits */}
+           <div className="space-y-4 pt-4">
+            <h4 className="font-medium text-sm text-zinc-400 uppercase tracking-wider text-center mb-4">
+              O que está incluído
+            </h4>
+            <div className="grid sm:grid-cols-2 gap-y-3 gap-x-6">
+              {benefits.map((benefit, index) => {
+                const Icon = benefit.icon;
+                return (
+                  <div key={index} className="flex items-center gap-3">
+                    <Icon className="w-5 h-5 text-black" />
+                    <p className="text-sm font-normal text-zinc-700">{benefit.text}</p>
+                  </div>
+                );
+              })}
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="space-y-3 pt-4">
+          <div className="pt-6 space-y-3">
             <Button
               onClick={handleUpgrade}
               disabled={isUpgrading}
-              className="w-full"
-              variant="jungle"
-              size="lg"
+              className={cn(
+                "w-full h-12 text-base font-medium rounded-lg shadow-sm border transition-all",
+                "bg-black text-white hover:bg-black/90 border-transparent"
+              )}
             >
-              {isUpgrading ? "Processando..." : "Assine Agora"}
+              {isUpgrading ? "Processando..." : "Assinar Agora"}
             </Button>
-            <button
-              onClick={() => onOpenChange(false)}
-              className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Talvez mais tarde
-            </button>
+            <p className="text-center text-xs text-zinc-400 font-light">
+              Pagamento seguro processado via Stripe. Reembolso garantido em até 7 dias.
+            </p>
           </div>
         </div>
       </DialogContent>
